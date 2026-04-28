@@ -55,22 +55,22 @@ export const DashboardView = () => {
   return (
     <div className="space-y-8 pb-10 max-w-7xl mx-auto">
       {/* Refined Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card-premium p-6 flex flex-col justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="card-premium p-6 flex flex-col justify-between min-h-[120px]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Total Income</p>
           <div className="flex items-center gap-2">
             <ArrowUpRight className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-2xl font-bold text-[#111827] dark:text-white tracking-tight">{formatCurrency(summary.totalIncome)}</h2>
+            <h2 className="text-2xl font-bold text-[#111827] tracking-tight">{formatCurrency(summary.totalIncome)}</h2>
           </div>
         </div>
-        <div className="card-premium p-6 flex flex-col justify-between">
+        <div className="card-premium p-6 flex flex-col justify-between min-h-[120px]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-1">Total Expenses</p>
           <div className="flex items-center gap-2">
             <ArrowDownLeft className="w-5 h-5 text-rose-500" />
-            <h2 className="text-2xl font-bold text-[#111827] dark:text-white tracking-tight">{formatCurrency(summary.totalExpenses)}</h2>
+            <h2 className="text-2xl font-bold text-[#111827] tracking-tight">{formatCurrency(summary.totalExpenses)}</h2>
           </div>
         </div>
-        <Card className="border-none" title="Allocation Strategy">
+        <Card className="border-none sm:col-span-2 lg:col-span-1" title="Allocation Strategy">
            <div className="h-12 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -127,31 +127,31 @@ export const DashboardView = () => {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
-              <h2 className="text-lg font-bold text-[#111827] dark:text-white flex items-center gap-2 tracking-tight">
+              <h2 className="text-lg font-bold text-[#111827] flex items-center gap-2 tracking-tight">
                 <History className="w-5 h-5 text-indigo-500" />
-                Recent Activity
+                Recent History
               </h2>
             </div>
             <div className="space-y-3">
               {summary.recentTransactions.map((t, i) => (
                 <div 
                   key={t.id} 
-                  className="card-premium p-4 flex items-center justify-between group hover:border-indigo-100 dark:hover:border-indigo-900"
+                  className="card-premium p-4 flex items-center justify-between group hover:border-indigo-100"
                 >
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm",
-                      t.type === 'income' ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" : "bg-rose-50 dark:bg-rose-900/20 text-rose-600"
+                      t.type === 'income' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                     )}>
                       {t.category.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-bold text-[#111827] dark:text-white text-sm">{t.category}</p>
+                      <p className="font-bold text-[#111827] text-sm">{t.category}</p>
                       <p className="text-[10px] text-secondary font-bold uppercase tracking-wider">{formatDate(t.date)}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={cn("font-bold text-sm tracking-tight", t.type === 'income' ? "text-emerald-600" : "text-[#111827] dark:text-white")}>
+                    <p className={cn("font-bold text-sm tracking-tight", t.type === 'income' ? "text-emerald-600" : "text-[#111827]")}>
                       {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                     </p>
                   </div>
@@ -165,15 +165,15 @@ export const DashboardView = () => {
         <div className="xl:col-span-1 space-y-8">
            <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
-              <h2 className="text-lg font-bold text-[#111827] dark:text-white flex items-center gap-2 tracking-tight">
+              <h2 className="text-lg font-bold text-[#111827] flex items-center gap-2 tracking-tight">
                 <ArrowRightLeft className="w-5 h-5 text-indigo-500" />
-                Capital Flow
+                Lending & Borrowing
               </h2>
             </div>
             <MoneyFlowTracker />
           </div>
 
-          <Card className="bg-indigo-600 dark:bg-indigo-600 text-white border-none py-8" title="AI Insight Pulse">
+          <Card className="bg-indigo-600 text-white border-none py-8" title="Smart Money Tips">
              <div className="relative z-10">
               <div className="prose prose-sm prose-invert leading-relaxed font-medium">
                  {insights.split('\n').map((line, i) => (

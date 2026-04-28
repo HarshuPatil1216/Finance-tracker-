@@ -17,9 +17,9 @@ export const Card = ({ children, className, title, subtitle, headerAction, ...pr
       {...props}
     >
       {(title || headerAction) && (
-        <div className="px-8 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            {title && <h3 className="font-bold text-[#111827] dark:text-white tracking-tight">{title}</h3>}
+            {title && <h3 className="font-bold text-[#111827] tracking-tight">{title}</h3>}
             {subtitle && <p className="text-xs text-secondary mt-1 font-medium">{subtitle}</p>}
           </div>
           {headerAction && <div>{headerAction}</div>}

@@ -15,25 +15,25 @@
 
 @layer base {
   body {
-    @apply transition-colors duration-500 bg-[#f8fafc] text-[#111827] dark:bg-[#0f172a] dark:text-[#f8fafc];
+    @apply transition-colors duration-500 bg-[#f8fafc] text-[#111827];
   }
 }
 
 @layer utilities {
   .card-premium {
-    @apply bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-white/5 shadow-soft rounded-2xl transition-all duration-300;
+    @apply bg-white border border-slate-200/60 shadow-soft rounded-2xl transition-all duration-300;
   }
   
   .glass-subtle {
-    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-white/5 shadow-soft;
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-soft;
   }
 
   .text-secondary {
-    @apply text-[#6b7280] dark:text-[#94a3b8];
+    @apply text-[#6b7280];
   }
 
   .heading-hero {
-    @apply text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#111827] dark:text-white leading-[1.1];
+    @apply text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#111827] leading-[1.1];
   }
 
   .hide-scrollbar::-webkit-scrollbar {

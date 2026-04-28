@@ -10,6 +10,10 @@ import { getOrCreateUser, updateUserProfile } from './services/db';
 import { UserProfile } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
+import { BottomNav } from './components/BottomNav';
+import { FAB } from './components/FAB';
+import { Modal } from './components/ui/Modal';
+import { TransactionForm } from './components/TransactionForm';
 import { DashboardView } from './views/DashboardView';
 import { TransactionsView } from './views/TransactionsView';
 import { BudgetView } from './views/BudgetView';
@@ -26,14 +30,7 @@ export default function App() {
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('dashboard');
-
-  useEffect(() => {
-    // Initial theme apply from localStorage (fastest)
-    const savedTheme = localStorage.getItem('fintrace_theme');
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   useEffect(() => {
     // Check if guest session exists
@@ -63,14 +60,6 @@ export default function App() {
     return () => unsubscribe();
   }, [isGuest]);
 
-  useEffect(() => {
-    // Apply theme changes from profile
-    if (profile?.theme) {
-      document.documentElement.classList.toggle('dark', profile.theme === 'dark');
-      localStorage.setItem('fintrace_theme', profile.theme);
-    }
-  }, [profile?.theme]);
-
   const handleGuestMode = async () => {
     try {
       setIsGuest(true);
@@ -97,15 +86,15 @@ export default function App() {
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="h-screen w-full flex flex-col items-center justify-center bg-[#f8fafc] dark:bg-[#0f172a] gap-6"
+        className="h-screen w-full flex flex-col items-center justify-center bg-[#f8fafc] gap-6"
       >
         <div className="relative">
-          <div className="w-16 h-16 border-2 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 rounded-full animate-spin" />
+          <div className="w-16 h-16 border-2 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
           <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 text-indigo-600" />
         </div>
         <div className="text-center space-y-1">
-          <p className="text-[#111827] dark:text-white font-bold tracking-tight">Fintrace</p>
-          <p className="text-xs text-secondary font-medium tracking-widest uppercase">Initializing Vault</p>
+          <p className="text-[#111827] font-bold tracking-tight">Fintrace</p>
+          <p className="text-xs text-secondary font-medium tracking-widest uppercase">Opening App</p>
         </div>
       </motion.div>
     );
@@ -127,11 +116,11 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-900 dark:text-slate-100">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 pb-20 lg:pb-0">
       <Sidebar activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar user={profile} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative custom-scrollbar pb-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -142,12 +131,12 @@ export default function App() {
               className="h-full"
             >
               {isGuest && (
-                <div className="mb-6 glass bg-amber-50/50 dark:bg-amber-900/20 border-amber-200/50 dark:border-amber-700/50 p-4 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-amber-800 dark:text-amber-400">
+                <div className="mb-6 glass bg-amber-50/50 border-amber-200/50 p-4 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-amber-800">
                     <Sparkles className="w-5 h-5" />
                     <p className="text-sm font-bold">You are in Guest Mode. Data is stored locally on this device.</p>
                   </div>
-                  <Button size="sm" onClick={signInWithGoogle} className="glass dark:glass-dark bg-white/50 dark:bg-slate-800/50 text-amber-900 dark:text-amber-100 font-bold border-amber-300">
+                  <Button size="sm" onClick={signInWithGoogle} className="glass bg-white/50 text-amber-900 font-bold border-amber-300">
                     Save Now
                   </Button>
                 </div>
@@ -157,6 +146,16 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+      <BottomNav activeView={activeView} setActiveView={setActiveView} />
+      <FAB onClick={() => setIsTransactionModalOpen(true)} />
+
+      <Modal 
+        isOpen={isTransactionModalOpen} 
+        onClose={() => setIsTransactionModalOpen(false)} 
+        title="Quick Transaction"
+      >
+        <TransactionForm onSuccess={() => setIsTransactionModalOpen(false)} />
+      </Modal>
     </div>
   );
 }
