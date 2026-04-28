@@ -1,0 +1,16 @@
+{
+  "name": "Smart Personal Finance Manager",
+  "description": "A premium, AI-powered financial dashboard for tracking transactions, budgets, and bills with intelligent spending insights and data visualization.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI Financial Insights",
+    "Real-time Transaction Tracking",
+    "Budget Management",
+    "Interactive Data Visualization",
+    "Data Export (CSV/PDF)"
+  ]
+}
