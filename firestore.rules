@@ -37,7 +37,6 @@ service cloud.firestore {
           && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
           && (data.currency == null || (data.currency is string && data.currency.size() <= 10))
           && (data.theme == null || data.theme in ['light', 'dark'])
-          && (data.pin == null || (data.pin is string && data.pin.size() <= 100))
           && data.createdAt is string;
       }
 
@@ -47,7 +46,7 @@ service cloud.firestore {
         && isValidUser(incoming())
         && incoming().uid == existing().uid
         && incoming().createdAt == existing().createdAt
-        && (incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'currency', 'displayName', 'photoURL', 'pin']));
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'currency', 'displayName', 'photoURL']));
     }
 
     // 2. Transactions Collection

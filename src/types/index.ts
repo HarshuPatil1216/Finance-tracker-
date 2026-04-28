@@ -17,7 +17,6 @@ export interface UserProfile {
   photoURL: string;
   currency: string;
   theme: 'light' | 'dark';
-  pin?: string;
   createdAt: string;
 }
 

@@ -7,22 +7,18 @@ import { useFinance } from '../hooks/useFinance';
 import { 
   FileText, 
   Table as TableIcon, 
-  ShieldCheck, 
   Moon, 
   Sun,
   Palette,
   CreditCard,
-  Lock,
-  CheckCircle2
+  CheckCircle2,
+  User as UserIcon
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { updateUserProfile } from '../services/db';
-import { PinLock } from '../components/PinLock';
-
-import bcrypt from 'bcryptjs';
 
 interface SettingsViewProps {
   user: UserProfile | null;
@@ -30,7 +26,6 @@ interface SettingsViewProps {
 
 export const SettingsView = ({ user }: SettingsViewProps) => {
   const { transactions, summary } = useFinance();
-  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const toggleTheme = (theme: 'light' | 'dark') => {
@@ -120,18 +115,6 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
     setIsExporting(false);
   };
 
-  const handlePinSuccess = async (newPin?: string) => {
-    if (!user || !newPin) return;
-    try {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPin = await bcrypt.hash(newPin, salt);
-      await updateUserProfile(user.uid, { pin: hashedPin });
-      setIsPinModalOpen(false);
-    } catch (err) {
-      console.error("Error hashing PIN:", err);
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
       <div className="flex items-center justify-between">
@@ -152,7 +135,7 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
                   alt="Profile"
                 />
                 <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white border-2 border-white dark:border-slate-900">
-                  <ShieldCheck className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4" />
                 </div>
               </div>
               <h2 className="text-xl font-bold text-[#111827] dark:text-white">{user?.displayName || 'Guest User'}</h2>
@@ -162,26 +145,6 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
                 <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase rounded-lg tracking-widest border border-indigo-100/50 dark:border-indigo-800/30">Verified</span>
                 <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase rounded-lg tracking-widest border border-emerald-100/50 dark:border-emerald-800/30">Active</span>
               </div>
-            </div>
-          </Card>
-
-          <Card className="border-none" title="Security">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                 <div className="flex items-center gap-3">
-                  <Lock className="w-4 h-4 text-indigo-600" />
-                  <span className="text-sm font-bold text-[#111827] dark:text-slate-300">PIN Access</span>
-                </div>
-                <button 
-                  onClick={() => setIsPinModalOpen(true)}
-                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  {user?.pin ? 'Modify' : 'Setup'}
-                </button>
-              </div>
-              <p className="text-[10px] text-secondary font-medium leading-relaxed px-1">
-                PIN provides an extra layer of security before high-sensitivity data can be accessed.
-              </p>
             </div>
           </Card>
         </div>
@@ -262,17 +225,6 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
           </Card>
         </div>
       </div>
-
-      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Security Protocol">
-        <div className="py-4">
-          <PinLock 
-            storedPin="" 
-            isSetting 
-            onSuccess={handlePinSuccess} 
-            title="Create Access PIN" 
-          />
-        </div>
-      </Modal>
     </div>
   );
 };

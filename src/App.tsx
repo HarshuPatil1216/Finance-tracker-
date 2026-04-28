@@ -8,7 +8,6 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signInWithGoogle } from './lib/firebase';
 import { getOrCreateUser, updateUserProfile } from './services/db';
 import { UserProfile } from './types';
-import bcrypt from 'bcryptjs';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './views/DashboardView';
@@ -17,7 +16,6 @@ import { BudgetView } from './views/BudgetView';
 import { BillsView } from './views/BillsView';
 import { SettingsView } from './views/SettingsView';
 import { LandingView } from './views/LandingView';
-import { PinLock } from './components/PinLock';
 import { Button } from './components/ui/Button';
 import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,21 +25,13 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isLocked, setIsLocked] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-  const [showCreatePin, setShowCreatePin] = useState(false);
 
   useEffect(() => {
     // Initial theme apply from localStorage (fastest)
     const savedTheme = localStorage.getItem('fintrace_theme');
     if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
-    }
-
-    // Check if session is already unlocked in this tab
-    const isUnlocked = sessionStorage.getItem('fintrace_session_unlocked') === 'true';
-    if (isUnlocked) {
-      setIsLocked(false);
     }
   }, []);
 
@@ -59,21 +49,9 @@ export default function App() {
           setUser(u);
           const p = await getOrCreateUser(u);
           setProfile(p);
-          
-          // PIN check logic
-          if (!p.pin) {
-            setShowCreatePin(true);
-            setIsLocked(false);
-          } else {
-            const isUnlocked = sessionStorage.getItem('fintrace_session_unlocked') === 'true';
-            if (!isUnlocked) {
-              setIsLocked(true);
-            }
-          }
         } else if (!isGuest) {
           setUser(null);
           setProfile(null);
-          setShowCreatePin(false);
         }
       } catch (err) {
         console.error("Auth error:", err);
@@ -86,32 +64,6 @@ export default function App() {
   }, [isGuest]);
 
   useEffect(() => {
-    // Inactivity Timer
-    let timeout: NodeJS.Timeout;
-
-    const resetTimer = () => {
-      if (timeout) clearTimeout(timeout);
-      // Auto-lock after 2 minutes if user has a PIN and is not already locked
-      if (profile?.pin && !isLocked) {
-        timeout = setTimeout(() => {
-          setIsLocked(true);
-          sessionStorage.removeItem('fintrace_session_unlocked');
-        }, 2 * 60 * 1000); 
-      }
-    };
-
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(event => window.addEventListener(event, resetTimer));
-
-    resetTimer();
-
-    return () => {
-      events.forEach(event => window.removeEventListener(event, resetTimer));
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [profile?.pin, isLocked]);
-
-  useEffect(() => {
     // Apply theme changes from profile
     if (profile?.theme) {
       document.documentElement.classList.toggle('dark', profile.theme === 'dark');
@@ -119,42 +71,12 @@ export default function App() {
     }
   }, [profile?.theme]);
 
-  const handleUnlock = () => {
-    setIsLocked(false);
-    sessionStorage.setItem('fintrace_session_unlocked', 'true');
-  };
-
-  const handlePinCreated = async (newPin?: string) => {
-    if (!newPin || !user) return;
-    try {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPin = await bcrypt.hash(newPin, salt);
-      const uid = user.uid || 'guest';
-      await updateUserProfile(uid, { pin: hashedPin });
-      
-      // Update local profile state
-      if (profile) {
-        setProfile({ ...profile, pin: hashedPin });
-      }
-      
-      setShowCreatePin(false);
-      handleUnlock();
-    } catch (err) {
-      console.error("Error setting initial PIN:", err);
-    }
-  };
-
   const handleGuestMode = async () => {
     try {
       setIsGuest(true);
       localStorage.setItem('smartfinance_is_guest', 'true');
       const p = await getOrCreateUser(null);
       setProfile(p);
-      if (!p.pin) {
-        setShowCreatePin(true);
-      } else {
-        setIsLocked(true);
-      }
     } finally {
       setLoading(false);
     }
@@ -186,23 +108,6 @@ export default function App() {
           <p className="text-xs text-secondary font-medium tracking-widest uppercase">Initializing Vault</p>
         </div>
       </motion.div>
-    );
-  }
-
-  if (isLocked && profile?.pin) {
-    return <PinLock storedPin={profile.pin} onSuccess={handleUnlock} />;
-  }
-
-  if (showCreatePin) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#f8fafc] dark:bg-[#0f172a] p-4">
-        <PinLock 
-          storedPin="" 
-          isSetting 
-          onSuccess={handlePinCreated} 
-          title="Secure Your Vault" 
-        />
-      </div>
     );
   }
 
