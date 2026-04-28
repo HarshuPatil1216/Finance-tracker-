@@ -1,72 +1,75 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  ReceiptIndianRupee, 
-  PieChart, 
-  CalendarClock, 
   Settings, 
   LogOut,
-  Sparkles
+  Sparkles,
+  History,
+  Wallet,
+  Receipt,
+  ArrowRightLeft
 } from 'lucide-react';
-import { Button } from './ui/Button';
-import { logout } from '../lib/firebase';
 import { cn } from '../lib/utils';
 
 interface SidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
+  onLogout: () => void;
 }
 
-export const Sidebar = ({ activeView, setActiveView }: SidebarProps) => {
+export const Sidebar = ({ activeView, setActiveView, onLogout }: SidebarProps) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'transactions', label: 'Transactions', icon: ReceiptIndianRupee },
-    { id: 'budget', label: 'Budgets', icon: PieChart },
-    { id: 'bills', label: 'Bills & Dues', icon: CalendarClock },
+    { id: 'transactions', label: 'Transactions', icon: History },
+    { id: 'budget', label: 'Budgets', icon: Wallet },
+    { id: 'bills', label: 'Payments', icon: Receipt },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-slate-100 flex flex-col h-full">
-      <div className="p-8 flex items-center gap-3">
-        <div className="bg-indigo-600 p-2 rounded-xl">
-          <Sparkles className="w-6 h-6 text-white" />
+    <div className="w-68 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-white/5 flex flex-col h-screen transition-all duration-300">
+      <div className="p-8">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 dark:shadow-none">
+            <Sparkles className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-[#111827] dark:text-white tracking-tight">Fintrace</h1>
+            <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest leading-none mt-1">Premium Stats</p>
+          </div>
         </div>
-        <h1 className="text-xl font-black text-indigo-950 tracking-tight">SmartFinance</h1>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group',
-                isActive 
-                  ? 'bg-indigo-50 text-indigo-700 font-semibold' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              )}
-            >
-              <Icon className={cn('w-5 h-5 transition-colors', isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-900')} />
-              <span>{item.label}</span>
-              {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.6)]" />}
-            </button>
-          );
-        })}
+      <nav className="flex-1 px-4 py-4 space-y-1.5">
+        <p className="px-6 text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-4">Main Menu</p>
+        {menuItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveView(item.id)}
+            className={cn(
+              "w-full flex items-center gap-3 px-6 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 group",
+              activeView === item.id 
+                ? "bg-indigo-600 text-white shadow-indigo-100 dark:shadow-none" 
+                : "text-[#6b7280] dark:text-[#94a3b8] hover:bg-slate-50 dark:hover:bg-white/5 hover:text-indigo-600 dark:hover:text-white"
+            )}
+          >
+            <item.icon className={cn(
+              "w-5 h-5 transition-colors",
+              activeView === item.id ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
+            )} />
+            {item.label}
+          </button>
+        ))}
       </nav>
 
-      <div className="p-4 mt-auto">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
-          onClick={() => logout()}
+      <div className="p-6 border-t border-slate-100 dark:border-white/5">
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-6 py-4 rounded-xl text-sm font-bold text-[#6b7280] dark:text-[#94a3b8] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-all group"
         >
-          <LogOut className="w-5 h-5 mr-3" />
-          Logout
-        </Button>
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          Sign Out
+        </button>
       </div>
     </div>
   );

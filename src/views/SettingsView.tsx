@@ -1,34 +1,60 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { useFinance } from '../hooks/useFinance';
 import { 
-  Download, 
   FileText, 
   Table as TableIcon, 
   ShieldCheck, 
   Moon, 
   Sun,
   Palette,
-  CreditCard
+  CreditCard,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { formatCurrency, formatDate } from '../lib/utils';
+import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { updateUserProfile } from '../services/db';
+import { PinLock } from '../components/PinLock';
+
+import bcrypt from 'bcryptjs';
 
 interface SettingsViewProps {
   user: UserProfile | null;
 }
 
 export const SettingsView = ({ user }: SettingsViewProps) => {
-  const { transactions, budgets, bills } = useFinance();
+  const { transactions, summary } = useFinance();
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const toggleTheme = (theme: 'light' | 'dark') => {
+    // Save to localStorage immediately for instant effect/persistence on boot
+    localStorage.setItem('fintrace_theme', theme);
+    
+    if (!user || user.uid === 'guest') {
+       const gd = JSON.parse(localStorage.getItem('smartfinance_guest_data') || '{}');
+       gd.profile = { ...gd.profile, theme };
+       localStorage.setItem('smartfinance_guest_data', JSON.stringify(gd));
+       if (theme === 'dark') {
+         document.documentElement.classList.add('dark');
+       } else {
+         document.documentElement.classList.remove('dark');
+       }
+       return;
+    }
+    updateUserProfile(user.uid, { theme });
+  };
 
   const exportToCSV = () => {
     const csvData = transactions.map(t => ({
       Date: t.date,
-      Type: t.type,
+      Type: t.type.toUpperCase(),
       Amount: t.amount,
       Category: t.category,
       Notes: t.notes || ''
@@ -38,19 +64,39 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `transactions_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.setAttribute('download', `Fintrace_Export_${new Date().toISOString().slice(0, 10)}.csv`);
     link.click();
-    document.body.removeChild(link);
   };
 
   const exportToPDF = () => {
+    setIsExporting(true);
     const doc = new jsPDF() as any;
-    doc.text('Smart Personal Finance Report', 14, 15);
+    
+    // Header
+    doc.setFillColor(79, 70, 229);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('FINTRACE STATEMENT', 14, 25);
+    
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
-    doc.text(`User: ${user?.displayName}`, 14, 28);
+    doc.text(`User: ${user?.displayName || 'Guest'}`, 14, 33);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 145, 33);
+
+    // Summary Section
+    doc.setTextColor(17, 24, 39);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Financial Snapshot', 14, 55);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Net Worth: ${formatCurrency(summary.totalBalance)}`, 14, 65);
+    doc.text(`Total Income: ${formatCurrency(summary.totalIncome)}`, 14, 72);
+    doc.text(`Total Expense: ${formatCurrency(summary.totalExpenses)}`, 14, 79);
 
     const tableData = transactions.map(t => [
       formatDate(t.date),
@@ -62,93 +108,171 @@ export const SettingsView = ({ user }: SettingsViewProps) => {
     doc.autoTable({
       head: [['Date', 'Type', 'Category', 'Amount']],
       body: tableData,
-      startY: 35,
-      theme: 'grid',
-      headStyles: { fillColor: [79, 70, 229] }
+      startY: 90,
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 4 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { top: 90 }
     });
 
-    doc.save(`finance_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`Fintrace_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    setIsExporting(false);
+  };
+
+  const handlePinSuccess = async (newPin?: string) => {
+    if (!user || !newPin) return;
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPin = await bcrypt.hash(newPin, salt);
+      await updateUserProfile(user.uid, { pin: hashedPin });
+      setIsPinModalOpen(false);
+    } catch (err) {
+      console.error("Error hashing PIN:", err);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Settings</h1>
-        <p className="text-slate-500 font-medium text-sm">Personalize your experience and manage data.</p>
+    <div className="max-w-4xl mx-auto space-y-8 pb-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[#111827] dark:text-white tracking-tight">System Configuration</h1>
+          <p className="text-secondary font-medium text-sm">Personalize workspace and security protocols.</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card title="Account Profile">
-          <div className="flex items-center gap-6 mb-8">
-            <img 
-              src={user?.photoURL} 
-              className="w-20 h-20 rounded-[2.5rem] border-4 border-white shadow-xl shadow-indigo-100" 
-              alt="Profile"
-            />
-            <div>
-              <h2 className="text-xl font-black text-slate-900">{user?.displayName}</h2>
-              <p className="text-slate-500 text-sm font-medium">{user?.email}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase rounded-lg">Pro User</span>
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-lg">Verified</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-8">
+          <Card className="border-none">
+            <div className="flex flex-col items-center text-center">
+              <div className="relative mb-6">
+                <img 
+                  src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'guest'}`} 
+                  className="w-24 h-24 rounded-3xl border-4 border-slate-50 dark:border-white/5 shadow-soft" 
+                  alt="Profile"
+                />
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white border-2 border-white dark:border-slate-900">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-[#111827] dark:text-white">{user?.displayName || 'Guest User'}</h2>
+              <p className="text-secondary text-sm font-medium mb-4">{user?.email || 'Local Storage Session'}</p>
+              
+              <div className="flex flex-wrap justify-center gap-2">
+                <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase rounded-lg tracking-widest border border-indigo-100/50 dark:border-indigo-800/30">Verified</span>
+                <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase rounded-lg tracking-widest border border-emerald-100/50 dark:border-emerald-800/30">Active</span>
               </div>
             </div>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="flex items-center gap-3 text-slate-600">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <span className="text-sm font-bold">Biometric Security</span>
-              </div>
-              <div className="w-10 h-5 bg-indigo-600 rounded-full relative">
-                <div className="absolute top-1 right-1 w-3 h-3 bg-white rounded-full" />
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="flex items-center gap-3 text-slate-600">
-                <CreditCard className="w-5 h-5 text-indigo-500" />
-                <span className="text-sm font-bold">Currency: USD ($)</span>
-              </div>
-              <button className="text-xs font-black text-indigo-600 uppercase tracking-wider hover:underline">Change</button>
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        <div className="space-y-8">
-          <Card title="Export Workspace">
-            <p className="text-slate-500 text-sm mb-6 font-medium">Download your transaction history and budget analysis in your preferred format.</p>
-            <div className="grid grid-cols-2 gap-4">
+          <Card className="border-none" title="Security">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                 <div className="flex items-center gap-3">
+                  <Lock className="w-4 h-4 text-indigo-600" />
+                  <span className="text-sm font-bold text-[#111827] dark:text-slate-300">PIN Access</span>
+                </div>
+                <button 
+                  onClick={() => setIsPinModalOpen(true)}
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  {user?.pin ? 'Modify' : 'Setup'}
+                </button>
+              </div>
+              <p className="text-[10px] text-secondary font-medium leading-relaxed px-1">
+                PIN provides an extra layer of security before high-sensitivity data can be accessed.
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-2 space-y-8">
+          <Card className="border-none" title="Data & Operations">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
                 onClick={exportToCSV}
-                className="flex flex-col items-center justify-center p-6 bg-emerald-50 border border-emerald-100 rounded-3xl hover:bg-emerald-100 transition-all group"
+                className="flex items-center gap-4 p-5 rounded-2xl border border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all group"
               >
-                <TableIcon className="w-8 h-8 text-emerald-600 mb-3 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-black text-emerald-950 uppercase tracking-tighter">Export CSV</span>
+                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <TableIcon className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-[#111827] dark:text-white">Excel/CSV</p>
+                  <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">Spreadsheet Sync</p>
+                </div>
               </button>
+              
               <button 
                 onClick={exportToPDF}
-                className="flex flex-col items-center justify-center p-6 bg-indigo-50 border border-indigo-100 rounded-3xl hover:bg-indigo-100 transition-all group"
+                disabled={isExporting}
+                className="flex items-center gap-4 p-5 rounded-2xl border border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-all group disabled:opacity-50"
               >
-                <FileText className="w-8 h-8 text-indigo-600 mb-3 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-black text-indigo-950 uppercase tracking-tighter">Export PDF</span>
+                <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-[#111827] dark:text-white">PDF Report</p>
+                  <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">Financial Archive</p>
+                </div>
               </button>
             </div>
           </Card>
 
-          <Card title="Appearance">
-            <div className="flex items-center justify-between p-1.5 bg-slate-100 rounded-2xl">
-              <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-white text-indigo-950 rounded-xl shadow-sm">
-                <Sun className="w-4 h-4" />
-                <span className="text-xs font-bold">Light</span>
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-2 py-3 text-slate-500">
-                <Moon className="w-4 h-4" />
-                <span className="text-xs font-bold">Dark</span>
-              </button>
+          <Card className="border-none" title="Workspace Experience">
+             <div className="space-y-6">
+              <div className="flex items-center justify-between p-2">
+                <div className="flex items-center gap-3">
+                  <Moon className="w-4 h-4 text-indigo-600" />
+                  <span className="text-sm font-bold text-[#111827] dark:text-slate-300">Theme Mode</span>
+                </div>
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                  <button 
+                    onClick={() => toggleTheme('light')}
+                    className={cn(
+                      "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all",
+                      user?.theme === 'light' || !user?.theme ? "bg-white text-indigo-600 shadow-sm" : "text-secondary hover:text-indigo-600"
+                    )}
+                  >
+                    Light
+                  </button>
+                  <button 
+                    onClick={() => toggleTheme('dark')}
+                    className={cn(
+                      "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all",
+                      user?.theme === 'dark' ? "bg-slate-700 text-white shadow-sm" : "text-secondary hover:text-indigo-600"
+                    )}
+                  >
+                    Dark
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-2 border-t border-slate-100 dark:border-white/5 pt-6">
+                 <div className="flex items-center gap-3">
+                  <Palette className="w-4 h-4 text-indigo-600" />
+                  <span className="text-sm font-bold text-[#111827] dark:text-slate-300">Accent Color</span>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-5 h-5 rounded-full bg-indigo-600 border-2 border-white dark:border-slate-800 ring-2 ring-indigo-100 dark:ring-indigo-900/40 cursor-pointer" />
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 cursor-not-allowed opacity-30" />
+                  <div className="w-5 h-5 rounded-full bg-rose-600 cursor-not-allowed opacity-30" />
+                </div>
+              </div>
             </div>
           </Card>
         </div>
       </div>
+
+      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Security Protocol">
+        <div className="py-4">
+          <PinLock 
+            storedPin="" 
+            isSetting 
+            onSuccess={handlePinSuccess} 
+            title="Create Access PIN" 
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

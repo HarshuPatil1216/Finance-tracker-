@@ -13,19 +13,19 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = ({ children, className, title, subtitle, headerAction, ...props }: CardProps) => {
   return (
     <div 
-      className={cn('bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden', className)}
+      className={cn('card-premium', className)}
       {...props}
     >
       {(title || headerAction) && (
-        <div className="px-6 py-4 border-bottom border-slate-50 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
           <div>
-            {title && <h3 className="font-semibold text-slate-900">{title}</h3>}
-            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+            {title && <h3 className="font-bold text-[#111827] dark:text-white tracking-tight">{title}</h3>}
+            {subtitle && <p className="text-xs text-secondary mt-1 font-medium">{subtitle}</p>}
           </div>
           {headerAction && <div>{headerAction}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-8">{children}</div>
     </div>
   );
 };

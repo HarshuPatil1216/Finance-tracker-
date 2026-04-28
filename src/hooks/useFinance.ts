@@ -7,23 +7,50 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Transaction, Budget, Bill, FinancialSummary } from '../types';
+import { Transaction, Budget, Bill, MoneyFlow, OperationType } from '../types';
+import { handleFirestoreError } from '../lib/utils';
 
 export const useFinance = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [moneyFlow, setMoneyFlow] = useState<MoneyFlow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    // Check if auth is ready
+    const uid = auth.currentUser?.uid;
 
-    const uid = auth.currentUser.uid;
+    if (!uid) {
+      // Guest Mode Logic
+      const getGuestData = () => {
+        const data = localStorage.getItem('smartfinance_guest_data');
+        return data ? JSON.parse(data) : { transactions: [], budgets: [], bills: [], moneyFlow: [] };
+      };
+
+      const pollGuestData = () => {
+        const data = getGuestData();
+        setTransactions(data.transactions || []);
+        setBudgets(data.budgets || []);
+        setBills(data.bills || []);
+        setMoneyFlow(data.moneyFlow || []);
+        setLoading(false);
+      };
+
+      pollGuestData();
+      const interval = setInterval(pollGuestData, 1500); 
+      return () => clearInterval(interval);
+    }
 
     const tUnsub = onSnapshot(
       query(collection(db, 'transactions'), where('userId', '==', uid), orderBy('date', 'desc')),
       (snap) => {
         setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Transactions subscription error:", err);
+        handleFirestoreError(err, OperationType.LIST, 'transactions');
       }
     );
 
@@ -31,6 +58,10 @@ export const useFinance = () => {
       query(collection(db, 'budgets'), where('userId', '==', uid)),
       (snap) => {
         setBudgets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Budget)));
+      },
+      (err) => {
+        console.error("Budgets subscription error:", err);
+        handleFirestoreError(err, OperationType.LIST, 'budgets');
       }
     );
 
@@ -38,7 +69,21 @@ export const useFinance = () => {
       query(collection(db, 'bills'), where('userId', '==', uid), orderBy('dueDate', 'asc')),
       (snap) => {
         setBills(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Bill)));
-        setLoading(false);
+      },
+      (err) => {
+        console.error("Bills subscription error:", err);
+        handleFirestoreError(err, OperationType.LIST, 'bills');
+      }
+    );
+
+    const mfUnsub = onSnapshot(
+      query(collection(db, 'moneyFlow'), where('userId', '==', uid), orderBy('dueDate', 'asc')),
+      (snap) => {
+        setMoneyFlow(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MoneyFlow)));
+      },
+      (err) => {
+        console.error("MoneyFlow subscription error:", err);
+        handleFirestoreError(err, OperationType.LIST, 'moneyFlow');
       }
     );
 
@@ -46,8 +91,9 @@ export const useFinance = () => {
       tUnsub();
       bUnsub();
       blUnsub();
+      mfUnsub();
     };
-  }, []);
+  }, [auth.currentUser]);
 
   const summary = useMemo(() => {
     let income = 0;
@@ -74,5 +120,5 @@ export const useFinance = () => {
     };
   }, [transactions]);
 
-  return { transactions, budgets, bills, summary, loading };
+  return { transactions, budgets, bills, moneyFlow, summary, loading };
 };

@@ -2,7 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Default Deny
+    // 0. Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
@@ -30,13 +30,24 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId
+          && data.email is string && data.email.size() <= 256
+          && (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+          && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
+          && (data.currency == null || (data.currency is string && data.currency.size() <= 10))
+          && (data.theme == null || data.theme in ['light', 'dark'])
+          && (data.pin == null || (data.pin is string && data.pin.size() <= 100))
+          && data.createdAt is string;
+      }
+
       allow get: if isOwner(userId);
-      allow create: if isOwner(userId) 
-        && incoming().keys().hasAll(['uid', 'email'])
-        && incoming().uid == request.auth.uid
-        && incoming().email.size() <= 256;
-      allow update: if isOwner(userId)
-        && incoming().uid == existing().uid;
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) 
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['theme', 'currency', 'displayName', 'photoURL', 'pin']));
     }
 
     // 2. Transactions Collection
@@ -46,13 +57,19 @@ service cloud.firestore {
           && data.type in ['income', 'expense']
           && data.amount is number && data.amount >= 0
           && data.category is string && data.category.size() <= 50
-          && data.date is string;
+          && data.date is string
+          && (data.notes == null || (data.notes is string && data.notes.size() <= 500))
+          && data.createdAt is string;
       }
 
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid && (transactionId == null || isValidId(transactionId));
       allow create: if isSignedIn() && isValidTransaction(incoming());
-      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidTransaction(incoming());
+      allow update: if isSignedIn() 
+        && existing().userId == request.auth.uid 
+        && isValidTransaction(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt;
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
 
@@ -62,13 +79,18 @@ service cloud.firestore {
         return data.userId == request.auth.uid
           && data.category is string && data.category.size() <= 50
           && data.amount is number && data.amount >= 0
-          && data.month is string && data.month.size() <= 7; // YYYY-MM
+          && data.month is string && data.month.size() <= 7
+          && data.createdAt is string;
       }
 
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid && (budgetId == null || isValidId(budgetId));
       allow create: if isSignedIn() && isValidBudget(incoming());
-      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidBudget(incoming());
+      allow update: if isSignedIn() 
+        && existing().userId == request.auth.uid 
+        && isValidBudget(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt;
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
 
@@ -79,13 +101,43 @@ service cloud.firestore {
           && data.name is string && data.name.size() <= 100
           && data.amount is number && data.amount >= 0
           && data.dueDate is string
-          && data.status in ['paid', 'unpaid'];
+          && data.status in ['paid', 'unpaid', 'pending']
+          && data.createdAt is string;
       }
 
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid && (billId == null || isValidId(billId));
       allow create: if isSignedIn() && isValidBill(incoming());
-      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidBill(incoming());
+      allow update: if isSignedIn() 
+        && existing().userId == request.auth.uid 
+        && isValidBill(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'name', 'amount', 'dueDate']));
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // 5. Money Flow Collection
+    match /moneyFlow/{flowId} {
+      function isValidFlow(data) {
+        return data.userId == request.auth.uid
+          && data.personName is string && data.personName.size() <= 100
+          && data.amount is number && data.amount >= 0
+          && data.type in ['give', 'take']
+          && data.status in ['pending', 'settled']
+          && (data.notes == null || (data.notes is string && data.notes.size() <= 500))
+          && data.createdAt is string;
+      }
+
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid && (flowId == null || isValidId(flowId));
+      allow create: if isSignedIn() && isValidFlow(incoming());
+      allow update: if isSignedIn() 
+        && existing().userId == request.auth.uid 
+        && isValidFlow(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'personName', 'amount', 'notes', 'dueDate', 'type']));
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
   }

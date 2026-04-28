@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signInWithGoogle } from './lib/firebase';
-import { getOrCreateUser } from './services/db';
+import { getOrCreateUser, updateUserProfile } from './services/db';
 import { UserProfile } from './types';
+import bcrypt from 'bcryptjs';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './views/DashboardView';
@@ -15,6 +16,8 @@ import { TransactionsView } from './views/TransactionsView';
 import { BudgetView } from './views/BudgetView';
 import { BillsView } from './views/BillsView';
 import { SettingsView } from './views/SettingsView';
+import { LandingView } from './views/LandingView';
+import { PinLock } from './components/PinLock';
 import { Button } from './components/ui/Button';
 import { Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,60 +25,189 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
+  const [showCreatePin, setShowCreatePin] = useState(false);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const p = await getOrCreateUser(u);
-        setProfile(p);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
+    // Initial theme apply from localStorage (fastest)
+    const savedTheme = localStorage.getItem('fintrace_theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+
+    // Check if session is already unlocked in this tab
+    const isUnlocked = sessionStorage.getItem('fintrace_session_unlocked') === 'true';
+    if (isUnlocked) {
+      setIsLocked(false);
+    }
   }, []);
+
+  useEffect(() => {
+    // Check if guest session exists
+    const guestSession = localStorage.getItem('smartfinance_is_guest');
+    if (guestSession === 'true') {
+      handleGuestMode();
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      try {
+        if (u) {
+          setIsGuest(false);
+          setUser(u);
+          const p = await getOrCreateUser(u);
+          setProfile(p);
+          
+          // PIN check logic
+          if (!p.pin) {
+            setShowCreatePin(true);
+            setIsLocked(false);
+          } else {
+            const isUnlocked = sessionStorage.getItem('fintrace_session_unlocked') === 'true';
+            if (!isUnlocked) {
+              setIsLocked(true);
+            }
+          }
+        } else if (!isGuest) {
+          setUser(null);
+          setProfile(null);
+          setShowCreatePin(false);
+        }
+      } catch (err) {
+        console.error("Auth error:", err);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isGuest]);
+
+  useEffect(() => {
+    // Inactivity Timer
+    let timeout: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      if (timeout) clearTimeout(timeout);
+      // Auto-lock after 2 minutes if user has a PIN and is not already locked
+      if (profile?.pin && !isLocked) {
+        timeout = setTimeout(() => {
+          setIsLocked(true);
+          sessionStorage.removeItem('fintrace_session_unlocked');
+        }, 2 * 60 * 1000); 
+      }
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+
+    resetTimer();
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [profile?.pin, isLocked]);
+
+  useEffect(() => {
+    // Apply theme changes from profile
+    if (profile?.theme) {
+      document.documentElement.classList.toggle('dark', profile.theme === 'dark');
+      localStorage.setItem('fintrace_theme', profile.theme);
+    }
+  }, [profile?.theme]);
+
+  const handleUnlock = () => {
+    setIsLocked(false);
+    sessionStorage.setItem('fintrace_session_unlocked', 'true');
+  };
+
+  const handlePinCreated = async (newPin?: string) => {
+    if (!newPin || !user) return;
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPin = await bcrypt.hash(newPin, salt);
+      const uid = user.uid || 'guest';
+      await updateUserProfile(uid, { pin: hashedPin });
+      
+      // Update local profile state
+      if (profile) {
+        setProfile({ ...profile, pin: hashedPin });
+      }
+      
+      setShowCreatePin(false);
+      handleUnlock();
+    } catch (err) {
+      console.error("Error setting initial PIN:", err);
+    }
+  };
+
+  const handleGuestMode = async () => {
+    try {
+      setIsGuest(true);
+      localStorage.setItem('smartfinance_is_guest', 'true');
+      const p = await getOrCreateUser(null);
+      setProfile(p);
+      if (!p.pin) {
+        setShowCreatePin(true);
+      } else {
+        setIsLocked(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    if (isGuest) {
+      setIsGuest(false);
+      localStorage.removeItem('smartfinance_is_guest');
+      setProfile(null);
+    } else {
+      auth.signOut();
+    }
+  };
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="h-screen w-full flex flex-col items-center justify-center bg-[#f8fafc] dark:bg-[#0f172a] gap-6"
+      >
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-          <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-indigo-600 animate-pulse" />
+          <div className="w-16 h-16 border-2 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 rounded-full animate-spin" />
+          <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 text-indigo-600" />
         </div>
-        <p className="text-slate-500 font-medium animate-pulse">Initializing your premium vault...</p>
+        <div className="text-center space-y-1">
+          <p className="text-[#111827] dark:text-white font-bold tracking-tight">Fintrace</p>
+          <p className="text-xs text-secondary font-medium tracking-widest uppercase">Initializing Vault</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (isLocked && profile?.pin) {
+    return <PinLock storedPin={profile.pin} onSuccess={handleUnlock} />;
+  }
+
+  if (showCreatePin) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#f8fafc] dark:bg-[#0f172a] p-4">
+        <PinLock 
+          storedPin="" 
+          isSetting 
+          onSuccess={handlePinCreated} 
+          title="Secure Your Vault" 
+        />
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50 p-4">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-slate-100"
-        >
-          <div className="bg-indigo-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-indigo-200 shadow-xl rotate-3 transform hover:rotate-0 transition-transform duration-500">
-            <Sparkles className="w-12 h-12 text-white" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Financial Freedom</h1>
-          <p className="text-slate-500 mb-10 leading-relaxed font-medium">Manage your wealth with precision and AI-powered insights. Join thousands of users today.</p>
-          
-          <Button 
-            className="w-full h-14 rounded-2xl text-lg font-bold shadow-lg"
-            onClick={signInWithGoogle}
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6 mr-3" alt="Google" />
-            Continue with Google
-          </Button>
-          
-          <p className="text-[10px] text-slate-400 mt-8 uppercase tracking-[0.2em] font-black">Secure • Private • Encrypted</p>
-        </motion.div>
-      </div>
-    );
+  if (!user && !isGuest) {
+    return <LandingView onGoogleLogin={signInWithGoogle} onGuestMode={handleGuestMode} />;
   }
 
   const renderView = () => {
@@ -90,11 +222,11 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans text-slate-900 dark:text-slate-100">
+      <Sidebar activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar user={profile} />
-        <main className="flex-1 overflow-y-auto p-8 relative">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -104,6 +236,17 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
+              {isGuest && (
+                <div className="mb-6 glass bg-amber-50/50 dark:bg-amber-900/20 border-amber-200/50 dark:border-amber-700/50 p-4 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-amber-800 dark:text-amber-400">
+                    <Sparkles className="w-5 h-5" />
+                    <p className="text-sm font-bold">You are in Guest Mode. Data is stored locally on this device.</p>
+                  </div>
+                  <Button size="sm" onClick={signInWithGoogle} className="glass dark:glass-dark bg-white/50 dark:bg-slate-800/50 text-amber-900 dark:text-amber-100 font-bold border-amber-300">
+                    Save Now
+                  </Button>
+                </div>
+              )}
               {renderView()}
             </motion.div>
           </AnimatePresence>

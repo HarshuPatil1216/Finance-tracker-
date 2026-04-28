@@ -52,10 +52,26 @@
         "name": { "type": "string" },
         "amount": { "type": "number" },
         "dueDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["paid", "unpaid"] },
+        "status": { "type": "string", "enum": ["paid", "unpaid", "pending"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "name", "amount", "dueDate", "status"]
+    },
+    "MoneyFlow": {
+      "title": "MoneyFlow",
+      "description": "Borrow or Lend records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "personName": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["give", "take"] },
+        "status": { "type": "string", "enum": ["pending", "settled"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "personName", "amount", "type", "status"]
     }
   },
   "firestore": {
@@ -74,6 +90,10 @@
     "/bills/{billId}": {
       "schema": "Bill",
       "description": "Scheduled bills and payments"
+    },
+    "/moneyFlow/{flowId}": {
+      "schema": "MoneyFlow",
+      "description": "Lend/Borrow Flow"
     }
   }
 }

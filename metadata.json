@@ -1,6 +1,6 @@
 {
   "name": "Smart Personal Finance Manager",
-  "description": "A premium, AI-powered financial dashboard for tracking transactions, budgets, and bills with intelligent spending insights and data visualization.",
+  "description": "A premium Fintech dashboard featuring a liquid glass UI. Track transactions, budgets, bills, and borrow/lend flows with AI-driven insights, secure PIN locking, and guest mode support.",
   "requestFramePermissions": [
     "camera",
     "microphone",

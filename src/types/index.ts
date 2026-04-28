@@ -1,4 +1,5 @@
 export type TransactionType = 'income' | 'expense';
+export type MoneyFlowType = 'give' | 'take';
 
 export enum OperationType {
   CREATE = 'create',
@@ -16,6 +17,7 @@ export interface UserProfile {
   photoURL: string;
   currency: string;
   theme: 'light' | 'dark';
+  pin?: string;
   createdAt: string;
 }
 
@@ -27,6 +29,18 @@ export interface Transaction {
   category: string;
   date: string;
   notes?: string;
+  createdAt: string;
+}
+
+export interface MoneyFlow {
+  id?: string;
+  userId: string;
+  personName: string;
+  amount: number;
+  dueDate: string;
+  type: MoneyFlowType; // give = I owe them, take = they owe me
+  notes?: string;
+  status: 'pending' | 'settled';
   createdAt: string;
 }
 
@@ -45,15 +59,6 @@ export interface Bill {
   name: string;
   amount: number;
   dueDate: string;
-  status: 'paid' | 'unpaid';
+  status: 'paid' | 'unpaid' | 'pending';
   createdAt: string;
-}
-
-export interface FinancialSummary {
-  totalBalance: number;
-  totalIncome: number;
-  totalExpenses: number;
-  recentTransactions: Transaction[];
-  categorySpending: { category: string; amount: number }[];
-  monthlyTrends: { month: string; income: number; expense: number }[];
 }

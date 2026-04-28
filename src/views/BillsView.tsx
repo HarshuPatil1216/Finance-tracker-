@@ -4,29 +4,40 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { Plus, Calendar, CheckCircle2, Trash2, Clock, AlertCircle } from 'lucide-react';
+import { 
+  Plus, 
+  Receipt, 
+  Calendar, 
+  Trash2, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle,
+  Bell
+} from 'lucide-react';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { addBill, updateBillStatus, deleteBill } from '../services/db';
 import { auth } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const BillsView = () => {
-  const { bills, loading } = useFinance();
+  const { bills } = useFinance();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Form State
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) return;
-
+    const userId = auth.currentUser?.uid || 'guest';
+    
     await addBill({
-      userId: auth.currentUser.uid,
+      userId,
       name,
       amount: parseFloat(amount),
       dueDate,
-      status: 'unpaid',
+      status: 'pending'
     });
 
     setIsModalOpen(false);
@@ -35,169 +46,174 @@ export const BillsView = () => {
     setDueDate('');
   };
 
-  if (loading) return null;
-
-  const unpaidBills = bills.filter(b => b.status === 'unpaid');
-  const paidBills = bills.filter(b => b.status === 'paid');
+  const pendingBills = bills.filter(b => b.status === 'pending');
+  const settledBills = bills.filter(b => b.status === 'paid');
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 pb-10 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Bills & Dues</h1>
-          <p className="text-slate-500 font-medium text-sm">Never miss a payment again.</p>
+          <h1 className="text-3xl font-extrabold text-[#111827] dark:text-white tracking-tight">Recurring Ledger</h1>
+          <p className="text-secondary font-medium text-sm">Monitor and settle recurring liabilities with precision.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="w-5 h-5 mr-2" />
-          Add Bill
+        <Button onClick={() => setIsModalOpen(true)} className="h-12 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none font-bold">
+          <Plus className="w-4 h-4 mr-2" />
+          Queue Payment
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-5 h-5 text-rose-500" />
-            <h2 className="text-xl font-black text-slate-900">Upcoming Payments</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Pending Ledger */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-lg font-bold text-[#111827] dark:text-white flex items-center gap-2">
+              <Clock className="w-5 h-5 text-indigo-600" />
+              Pending Obligations
+            </h2>
+            <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase rounded-lg tracking-widest border border-indigo-100/50 dark:border-indigo-800/30">
+              {pendingBills.length} Active
+            </span>
           </div>
+
           <div className="space-y-4">
-            <AnimatePresence>
-              {unpaidBills.map(bill => {
-                const isUrgent = new Date(bill.dueDate).getTime() - new Date().getTime() < 3 * 24 * 60 * 60 * 1000;
+            <AnimatePresence mode="popLayout">
+              {pendingBills.map((bill) => {
+                const isOverdue = new Date(bill.dueDate) < new Date(new Date().setHours(0,0,0,0));
                 return (
-                  <motion.div 
+                  <motion.div
                     layout
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
                     key={bill.id}
+                    className="card-premium p-6 group hover:border-indigo-100 dark:hover:border-indigo-900"
                   >
-                    <Card className={cn(
-                      "group border-l-4 transition-all",
-                      isUrgent ? "border-l-rose-500 bg-rose-50/10" : "border-l-indigo-400"
-                    )}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "w-12 h-12 rounded-2xl flex items-center justify-center",
-                            isUrgent ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600"
-                          )}>
-                            <Calendar className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <p className="font-black text-slate-900 text-lg uppercase tracking-tight">{bill.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-sm font-bold text-slate-500">{formatDate(bill.dueDate)}</p>
-                              {isUrgent && (
-                                <span className="flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded uppercase">
-                                  <AlertCircle className="w-3 h-3" /> Urgent
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-5">
+                        <div className={cn(
+                          "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-soft",
+                          isOverdue ? "bg-rose-50 text-rose-600" : "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600"
+                        )}>
+                          {isOverdue ? <AlertCircle className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
                         </div>
-                        <div className="text-right flex items-center gap-4">
-                          <div>
-                            <p className="text-2xl font-black text-slate-900">{formatCurrency(bill.amount)}</p>
-                          </div>
-                          <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="sm" 
-                              className="rounded-lg h-8 bg-emerald-500 hover:bg-emerald-600"
-                              onClick={() => bill.id && updateBillStatus(bill.id, 'paid')}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                              Pay
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="rounded-lg h-8 text-rose-400 hover:bg-rose-50"
-                              onClick={() => bill.id && deleteBill(bill.id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-1.5" />
-                              Remove
-                            </Button>
+                        <div>
+                          <h3 className="font-bold text-[#111827] dark:text-white">{bill.name}</h3>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <div className="flex items-center gap-1.5 text-secondary text-xs font-medium">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {formatDate(bill.dueDate)}
+                            </div>
+                            {isOverdue && (
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded leading-none">Overdue</span>
+                            )}
                           </div>
                         </div>
                       </div>
-                    </Card>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-[#111827] dark:text-white tracking-tight">{formatCurrency(bill.amount)}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-secondary">Outstanding</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => bill.id && updateBillStatus(bill.id, 'paid')}
+                            className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-soft"
+                          >
+                            <CheckCircle2 className="w-5 h-5" />
+                          </button>
+                          <button 
+                            onClick={() => bill.id && deleteBill(bill.id)}
+                            className="w-10 h-10 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-xl flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all shadow-soft"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 );
               })}
             </AnimatePresence>
-            {unpaidBills.length === 0 && (
-              <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
-                <CheckCircle2 className="w-12 h-12 text-emerald-300 mx-auto mb-4" />
-                <p className="text-slate-500 font-bold text-lg">No pending bills!</p>
-                <p className="text-slate-400 text-sm">Great job staying on top of your payments.</p>
+            {pendingBills.length === 0 && (
+              <div className="py-20 text-center card-premium border-dashed border-2 flex flex-col items-center">
+                <Bell className="w-12 h-12 text-slate-200 dark:text-slate-800 mb-4" />
+                <p className="text-secondary font-medium">No pending liabilities recorded.</p>
               </div>
             )}
           </div>
         </div>
 
+        {/* Settled Ledger */}
         <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-xl font-black text-slate-900">Paid Bills</h2>
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-lg font-bold text-[#111827] dark:text-white flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              Settled Archive
+            </h2>
           </div>
-          <div className="space-y-3">
-            {paidBills.map(bill => (
-              <div key={bill.id} className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-100 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5" />
+
+          <Card className="border-none p-0 overflow-hidden">
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
+              {settledBills.map((bill) => (
+                <div key={bill.id} className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl flex items-center justify-center shadow-soft">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-[#111827] dark:text-white">{bill.name}</p>
+                      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-1">Authorized & Settle</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">{bill.name}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Paid on {formatDate(bill.createdAt)}</p>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-400 line-through tracking-tight">{formatCurrency(bill.amount)}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-black text-slate-400 line-through text-sm">{formatCurrency(bill.amount)}</p>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6 text-slate-300 hover:text-red-400"
-                    onClick={() => bill.id && deleteBill(bill.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+              ))}
+              {settledBills.length === 0 && (
+                <div className="p-12 text-center">
+                  <p className="text-secondary text-xs font-medium">No historical settlements.</p>
                 </div>
-              </div>
-            ))}
-            {paidBills.length === 0 && (
-              <p className="text-center py-10 text-slate-400 font-medium text-sm">History will appear here after payments.</p>
-            )}
-          </div>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Upcoming Bill">
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Payment Authentication">
+        <form onSubmit={handleSubmit} className="space-y-8">
           <Input 
-            label="Bill Name" 
-            placeholder="e.g. Netflix, Electricity, Rent" 
-            required
+            label="Service Provider / Creditor" 
+            placeholder="e.g. Amazon Web Services" 
+            required 
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <Input 
-            label="Amount Due" 
+            label="Monetary Obligation (₹)" 
             type="number" 
             placeholder="0.00" 
-            required
+            required 
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
           <Input 
             label="Due Date" 
             type="date" 
-            required
+            required 
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
           />
-          <Button type="submit" className="w-full h-14 rounded-2xl text-lg font-bold mt-4">
-            Track Bill
+
+          <div className="p-5 bg-rose-50/50 dark:bg-rose-900/10 rounded-2xl border border-rose-100/50 dark:border-rose-800/20 flex gap-4">
+            <Bell className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-[#111827] dark:text-slate-400 leading-relaxed font-medium">
+              Liabilities not settled before the deadline will be flagged as critical system alerts.
+            </p>
+          </div>
+
+          <Button type="submit" className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-indigo-100 transition-all">
+            Authorize Payment Entry
           </Button>
         </form>
       </Modal>
