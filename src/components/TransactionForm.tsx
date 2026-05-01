@@ -87,16 +87,23 @@ export const TransactionForm = ({ onSuccess }: TransactionFormProps) => {
       />
       
       <div className="space-y-1.5">
-        <label className="text-xs font-bold text-secondary uppercase tracking-[0.2em] ml-1">Category</label>
-        <select 
-          className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">Category</label>
+        <div className="relative group">
+          <select 
+            className="w-full h-12 bg-white border border-slate-200 rounded-xl px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 transition-all appearance-none cursor-pointer group-hover:border-slate-300"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-slate-600 transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
       </div>
 
       <Input 

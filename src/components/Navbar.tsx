@@ -1,14 +1,15 @@
 import React from 'react';
 import { UserProfile } from '../types';
-import { Bell, Search, Sun, Moon } from 'lucide-react';
+import { Bell, Search, Sun, Moon, LogOut } from 'lucide-react';
 import { Button } from './ui/Button';
 import { updateUserProfile } from '../services/db';
 
 interface NavbarProps {
   user: UserProfile | null;
+  onLogout: () => void;
 }
 
-export const Navbar = ({ user }: NavbarProps) => {
+export const Navbar = ({ user, onLogout }: NavbarProps) => {
   const greeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -42,6 +43,15 @@ export const Navbar = ({ user }: NavbarProps) => {
             alt="User avatar"
           />
         </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onLogout}
+          className="glass text-slate-500 rounded-2xl hover:text-rose-600 sm:ml-2"
+          aria-label="Logout"
+        >
+          <LogOut className="w-5 h-5" />
+        </Button>
       </div>
     </div>
   );

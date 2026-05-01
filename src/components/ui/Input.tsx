@@ -17,13 +17,25 @@ export const Input = React.forwardRef<HTMLInputElement & HTMLTextAreaElement, In
 
     return (
       <div className="w-full space-y-1.5">
-        {label && <label className="text-sm font-semibold text-slate-700 ml-1">{label}</label>}
-        {multiline ? (
-          <textarea className={cn(inputClasses, 'h-24 resize-none')} ref={ref as any} {...(props as any)} />
-        ) : (
-          <input className={inputClasses} ref={ref as any} {...(props as any)} />
+        {label && (
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1">
+            {label}
+          </label>
         )}
-        {error && <p className="text-xs text-red-500 ml-1 font-medium">{error}</p>}
+        {multiline ? (
+          <textarea 
+            className={cn(inputClasses, 'h-24 resize-none font-bold text-slate-900')} 
+            ref={ref as any} 
+            {...(props as any)} 
+          />
+        ) : (
+          <input 
+            className={cn(inputClasses, 'font-bold text-slate-900')} 
+            ref={ref as any} 
+            {...(props as any)} 
+          />
+        )}
+        {error && <p className="text-[10px] text-red-500 ml-1 font-bold uppercase tracking-wider">{error}</p>}
       </div>
     );
   }

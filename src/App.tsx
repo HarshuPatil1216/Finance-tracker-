@@ -5,8 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, signInWithGoogle } from './lib/firebase';
+import { auth, signInWithGoogle, handleRedirectResult } from './lib/firebase';
 import { getOrCreateUser, updateUserProfile } from './services/db';
+import { apiService } from './services/api';
 import { UserProfile } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
@@ -21,8 +22,9 @@ import { BillsView } from './views/BillsView';
 import { SettingsView } from './views/SettingsView';
 import { LandingView } from './views/LandingView';
 import { Button } from './components/ui/Button';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import axios from 'axios';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -39,6 +41,13 @@ export default function App() {
       handleGuestMode();
     }
 
+    // Check for redirect result
+    handleRedirectResult().then(u => {
+      if (u) {
+        console.log("Logged in via redirect", u);
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       try {
         if (u) {
@@ -46,6 +55,12 @@ export default function App() {
           setUser(u);
           const p = await getOrCreateUser(u);
           setProfile(p);
+          
+          // Send login email notification silently
+          if (u.email) {
+            axios.post('http://localhost:8080/api/auth/send-login-email', { email: u.email })
+              .catch(e => console.warn("Could not send login notification email:", e));
+          }
         } else if (!isGuest) {
           setUser(null);
           setProfile(null);
@@ -119,7 +134,7 @@ export default function App() {
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 pb-20 lg:pb-0">
       <Sidebar activeView={activeView} setActiveView={setActiveView} onLogout={handleLogout} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar user={profile} />
+        <Navbar user={profile} onLogout={handleLogout} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 relative custom-scrollbar pb-10">
           <AnimatePresence mode="wait">
             <motion.div
